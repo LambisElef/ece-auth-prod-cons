@@ -12,7 +12,9 @@
  *
  *	Date	: 18 September 1997
  *
- *	Revised	:
+ *	Revised	: Eleftheriadis Charalampos
+ *
+ * 	Date	: 30 March 2020
  */
 
 #include <pthread.h>
