@@ -12,9 +12,7 @@
  *
  *	Date	: 18 September 1997
  *
- *	Revised	: Charalampos Eleftheriadis
- *
- *	Date	: 28 March 2020
+ *	Revised	:
  */
 
 #include <pthread.h>
@@ -25,8 +23,8 @@
 #include <math.h>
 
 #define QUEUESIZE 10
-#define LOOP 10000
-#define PRO_NUM 6
+#define LOOP 100000
+#define PRO_NUM 1
 
 void *producer (void *args);
 void *consumer (void *args);
@@ -56,23 +54,26 @@ int outCounter;
 
 int main () {
 
-    // Initialize random number seed.
+    // Initializes random number seed.
     srand(time(NULL));
 
-    // Open file.
+    // Opens file.
     FILE *fp;
-    fp = fopen("dataP6K10-20.csv", "w");
+    fp = fopen("dataP1K100-200.csv", "w");
 
     for (int conNum=1; conNum<129; conNum*=2) {
 
-        // Count from -1 each time.
+        // Prints a message.
+        printf("#Cons=%d Started.\n",conNum);
+
+        // outCounter begins from -1 each time.
         outCounter = -1;
 
-        // Allocate array with cells equal to the expected production.
+        // Allocates array with cells equal to the expected production.
         // Each cell will contain the in-queue waiting time of each produced element.
         int *toWrite = (int *)malloc(LOOP*PRO_NUM*sizeof(int));
 
-        // Initialize queue.
+        // Initializes queue.
         queue *fifo;
         fifo = queueInit (toWrite);
         if (fifo ==  NULL) {
@@ -83,46 +84,47 @@ int main () {
         pthread_t pro[PRO_NUM];
         pthread_t con[conNum];
 
-        // Create producer and consumer threads.
+        // Creates producer and consumer threads.
         for (int i=0; i<conNum; i++)
             pthread_create (&con[i], NULL, consumer, fifo);
         for (int i=0; i<PRO_NUM; i++)
             pthread_create (&pro[i], NULL, producer, fifo);
 
-        // Wait for threads to finish.
+        // Waits for threads to finish.
         for (int i=0; i<PRO_NUM; i++)
             pthread_join (pro[i], NULL);
         for (int i=0; i<conNum; i++)
             pthread_join (con[i], NULL);
 
-        // Delete queue.
+        // Deletes queue.
         queueDelete (fifo);
 
-        // Write results to file. The number of row represents the number of consumers of the test.
+        // Writes results to file. The number of row represents the number of consumers of the test.
         for (int i=0; i<LOOP*PRO_NUM; i++)
             fprintf(fp, "%d,", toWrite[i]);
         fprintf(fp, "\n");
 
+        // Releases memory.
         free(toWrite);
 
-        usleep(100000);
+        // Sleeps for 100ms before next iteration.
+        sleep(0.1);
 
     }
 
-    // Close file.
+    // Closes file.
     fclose(fp);
 
     return 0;
 }
 
-// Calculate sin of args with args of type [number of angles, angle #1, angle #2, etc]
 void work(void *arg) {
     int *a = (int *)arg;
     double r = 0;
     for (int i=0; i<a[0]; i++)
         r += sin((double)a[i+1]);
 
-    // Print result to screen.
+    // Prints result to screen.
     //printf("%f\n",r);
 }
 
@@ -132,32 +134,37 @@ void *producer (void *q) {
     fifo = (queue *)q;
 
     for (int i=0; i<LOOP; i++) {
-		
-        // Randomize number of angles between 10 and 20.
-		int k = rand() % 10 + 10;
+
+        // Creates the work funtion arguments. k is the number of them.
+        int k = (rand() % 101) + 100;
         int *a = (int *)malloc((k+1)*sizeof(int));
         a[0] = k;
-		
-        // Creates the different angles.
-		for (int i=0; i<k; i++)
+        for (int i=0; i<k; i++)
             a[i+1] = k+i;
 
+        // Creates the element that will be added to the queue.
         workFunction in;
         in.work = &work;
         in.arg = a;
 
+        // Critical section begins.
         pthread_mutex_lock (fifo->mut);
+
         while (fifo->full) {
             //printf ("producer: queue FULL.\n");
             pthread_cond_wait (fifo->notFull, fifo->mut);
         }
         gettimeofday(&in.start, NULL);
         queueAdd (fifo, in);
+
+        // Critical section ends.
         pthread_mutex_unlock (fifo->mut);
+
+        // Signals the consumer that queue is not empty.
         pthread_cond_signal (fifo->notEmpty);
-		
+
     }
-	
+
     return (NULL);
 }
 
@@ -169,34 +176,36 @@ void *consumer (void *q) {
     fifo = (queue *)q;
 
     while (1) {
-        
-		pthread_mutex_lock (fifo->mut);
-		
-        // Checks the counter to see if the producers work is finished.
-		if (outCounter == LOOP*PRO_NUM-1) {
+
+        // Critical section begins.
+        pthread_mutex_lock (fifo->mut);
+
+        // Checks if the number of consumed elements has matched the production. If yes, then this consumer exits.
+        if (outCounter == LOOP*PRO_NUM-1) {
             pthread_mutex_unlock (fifo->mut);
             break;
         }
-		
-		// Increase the counter indicating that this thread will eventually consume an element.
-		// It might wait for the producer to fill in the queue, but eventually it will be there.
+
+        // This consumer is going to consume an element, so the outCounter is increased.
         outCounter++;
-		
+
         while (fifo->empty) {
-        //printf ("consumer: queue EMPTY.\n");
-        pthread_cond_wait (fifo->notEmpty, fifo->mut);
+            //printf ("consumer: queue EMPTY.\n");
+            pthread_cond_wait (fifo->notEmpty, fifo->mut);
         }
         queueDel (fifo, &out);
         gettimeofday(&end, NULL);
-		
-		// Calculate the in-queue waiting time.
         fifo->toWrite[outCounter] = (int) ((end.tv_sec-out.start.tv_sec)*1e6 + (end.tv_usec-out.start.tv_usec));
+
+        // Critical section ends.
         pthread_mutex_unlock (fifo->mut);
+
+        // Signals to producer that queue is not full.
         pthread_cond_signal (fifo->notFull);
-		
-		// Execute work function.
+
+        // Executes work outside the critical section.
         out.work(out.arg);
-		
+
     }
 
     return (NULL);
