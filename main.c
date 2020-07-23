@@ -1,12 +1,10 @@
 /*
- *	File	: pc.c
+ *	File	: main.c
  *
  *	Title	: Demo Producer/Consumer.
  *
  *	Short	: A solution to the producer consumer problem using
  *		pthreads.
- *
- *	Long 	:
  *
  *	Author	: Andrae Muys
  *
@@ -137,12 +135,12 @@ void *producer (void *q) {
 
     for (int i=0; i<LOOP; i++) {
 
-        // Creates the work funtion arguments. k is the number of them.
+        // Creates the work function arguments. k is the number of them.
         int k = (rand() % 101) + 100;
         int *a = (int *)malloc((k+1)*sizeof(int));
         a[0] = k;
-        for (int i=0; i<k; i++)
-            a[i+1] = k+i;
+        for (int j=0; j<k; j++)
+            a[j+1] = k+j;
 
         // Creates the element that will be added to the queue.
         workFunction in;
