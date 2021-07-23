@@ -6,5 +6,4 @@ This is the first assignment for the course "Real Time Embedded Systems" for the
 ### Files description:
 - main.c:         Source file containing everything for this small assignment.
 - prod-cons.m:    Matlab script for making graphs out of the files outputed from 'main.c'.
-- Assignment.pdf: The assignment.
 - Report.pdf:     The assignment's report.
